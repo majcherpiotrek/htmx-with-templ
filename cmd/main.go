@@ -31,7 +31,7 @@ func main() {
 
 	e.GET("/", func(c echo.Context) error {
 
-		return render(c, 200, components.Hello("Joe"))
+		return render(c, 200, components.Index(components.Hello("Joe")))
 	})
 
 	e.Logger.Fatal(e.Start(":42069"))
