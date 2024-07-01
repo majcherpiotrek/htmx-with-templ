@@ -5,7 +5,9 @@ tmp_dir = "tmp"
 
 [build]
 # Command to build the project
-cmd = "go build -o tmp/main ./cmd/"
+cmd = "templ generate && go build -o tmp/main ./cmd/"
+
+delay = 1000
 
 # Binary to run after build
 bin = "./tmp/main"
@@ -14,7 +16,9 @@ bin = "./tmp/main"
 full_bin = "./tmp/main"
 
 # Watch these directories for changes
-include_ext = ["go", "tpl", "tmpl", "html"]
+include_ext = ["go", "tpl", "tmpl", "templ", "html"]
+
+exclude_regex = [".*_templ.go"]
 
 # Ignore these files/directories
 exclude_dir = ["vendor"]
