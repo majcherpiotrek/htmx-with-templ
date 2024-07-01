@@ -8,7 +8,7 @@ import (
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/labstack/gommon/log"
 
-	"htmx-with-templ/components"
+	"htmx-with-templ/view/components"
 )
 
 func render(ctx echo.Context, status int, t templ.Component) error {
