@@ -1,0 +1,15 @@
+{
+  "name": "ts",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "build": "esbuild --minify --outdir=../assets/js ./src/**/*.ts"
+  },
+  "author": "piotrek",
+  "license": "ISC",
+  "devDependencies": {
+    "esbuild": "^0.22.0",
+    "typescript": "^5.5.2"
+  }
+}

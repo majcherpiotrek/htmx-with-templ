@@ -6,17 +6,7 @@ templ Index(content templ.Component) {
 			<meta charset="UTF-8"/>
 			<meta name="viewport" content="width=device-width, initial-scale=1"/>
 			<script src="https://unpkg.com/htmx.org@1.9.12/dist/htmx.js" integrity="sha384-qbtR4rS9RrUMECUWDWM2+YGgN3U4V4ZncZ0BvUcg9FGct0jqXz3PUdVpU1p0yrXS" crossorigin="anonymous"></script>
-			<script>
-    document.addEventListener("DOMContentLoaded", (event) => {
-      document.body.addEventListener('htmx:beforeSwap', function (evt) {
-        console.log(evt.detail.xhr);
-        if (evt.detail.xhr.status === 422 || evt.detail.xhr.status === 409) {
-          evt.detail.shouldSwap = true;
-          evt.detail.isError = false;
-        }
-      });
-    })
-  </script>
+			<script src="/assets/js/addBeforeSwapListener.js"></script>
 		</head>
 		<body>
 			@content

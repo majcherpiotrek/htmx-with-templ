@@ -28,6 +28,7 @@ func main() {
 
 	e.Use(middleware.Logger())
 	e.Logger.SetLevel(log.INFO)
+	e.Static("/assets", "assets")
 
 	e.GET("/", func(c echo.Context) error {
 
