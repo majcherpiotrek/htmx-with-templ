@@ -56,10 +56,10 @@ func WithInputType(inputType inputType) func(*InputAttributes) {
 	return func(attrs *InputAttributes) { attrs.Type = inputType }
 }
 
-templ Input(attrs *InputAttributes, elementAttrs templ.Attributes) {
+templ Input(attrs *InputAttributes, elementAttrs *templ.Attributes) {
 	<div class="flex flex-col gap-1">
 		<input
-			{ elementAttrs... }
+			{ *elementAttrs... }
 			class={ utils.ClassNames(
 				"border rounded-lg outline-sky-400 px-4 py-2", 
 				utils.NewConditionalClass(

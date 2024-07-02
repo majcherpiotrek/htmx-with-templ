@@ -1,19 +1,30 @@
 package components
 
 import "htmx-with-templ/view/models"
+import "fmt"
 
-var inputValidationAttributes = templ.Attributes{
-	"hx-post":    "/validate",
-	"hx-trigger": "keyup changed delay:500ms",
-	"hx-sync":    "closest form:abort",
-	"hx-target":  "closest form",
-	"hx-swap":    "outerHTML",
+func inputValidationAttributes(field string) *templ.Attributes {
+	return &templ.Attributes{
+		"hx-post":    fmt.Sprintf("/validate/%s", field),
+		"hx-trigger": "keyup changed delay:500ms",
+		"hx-sync":    "closest form:abort",
+		"hx-target":  "closest div",
+		"hx-swap":    "outerHTML",
+	}
+}
+
+templ NameInput(value string, errorMessage string) {
+	@Input(NewInputAttributes("name", WithInputValue(value), WithInputErrorMessage(errorMessage)), inputValidationAttributes("name"))
+}
+
+templ EmailInput(value string, errorMessage string) {
+	@Input(NewInputAttributes("email", WithInputValue(value), WithInputErrorMessage(errorMessage), WithInputType(InputType.Email)), inputValidationAttributes("email"))
 }
 
 templ ContactForm(fd *models.FormData) {
 	<form class="flex gap-8 bg-white p-8 rounded-xl" hx-swap="outerHTML" hx-post={ string(templ.URL("/contacts")) }>
-		@Input(NewInputAttributes("name", WithInputValue(fd.Data["name"]), WithInputErrorMessage(fd.Errors["name"])), inputValidationAttributes)
-		@Input(NewInputAttributes("email", WithInputValue(fd.Data["email"]), WithInputErrorMessage(fd.Errors["email"]), WithInputType(InputType.Email)), inputValidationAttributes)
+		@NameInput(fd.Data["name"], fd.Errors["name"])
+		@EmailInput(fd.Data["email"], fd.Errors["email"])
 		<button type="submit">Add contact</button>
 	</form>
 }

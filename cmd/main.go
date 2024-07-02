@@ -43,13 +43,18 @@ func hasContactWithEmail(contacts *Contacts, email string) bool {
 
 var id = 0
 
-func validateContactFormData(fd *viewModels.FormData, contacts *Contacts) *viewModels.FormData {
+func validateName(fd *viewModels.FormData) *viewModels.FormData {
 	name := fd.Data["name"]
-	email := fd.Data["email"]
 
 	if len(name) < 1 {
 		fd.AddError("name", "Name is required")
 	}
+
+	return fd
+}
+
+func validateEmail(fd *viewModels.FormData, contacts *Contacts) *viewModels.FormData {
+	email := fd.Data["email"]
 
 	if len(email) < 1 {
 		fd.AddError("email", "Email is required")
@@ -59,6 +64,12 @@ func validateContactFormData(fd *viewModels.FormData, contacts *Contacts) *viewM
 		fd.AddError("email", "A user with this email already exists")
 	}
 
+	return fd
+}
+
+func validateContactFormData(fd *viewModels.FormData, contacts *Contacts) *viewModels.FormData {
+	validateName(fd)
+	validateEmail(fd, contacts)
 	return fd
 }
 
@@ -91,6 +102,29 @@ func main() {
 		}
 
 		return renderComponent(c, 200, components.ContactForm(formData))
+	})
+
+	e.POST("/validate/:field", func(c echo.Context) error {
+		field := c.Param("field")
+
+		name := c.FormValue("name")
+		email := c.FormValue("email")
+
+		formData := viewModels.NewFormData()
+		formData.AddValue("name", name)
+		formData.AddValue("email", email)
+
+		if field == "name" {
+			validateName(formData)
+			return renderComponent(c, 200, components.NameInput(name, formData.Errors["name"]))
+		}
+
+		if field == "email" {
+			validateEmail(formData, &contacts)
+			return renderComponent(c, 200, components.EmailInput(email, formData.Errors["email"]))
+		}
+
+		return c.String(400, "Invalid form field")
 	})
 
 	e.POST("/contacts", func(c echo.Context) error {
