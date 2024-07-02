@@ -1,0 +1,11 @@
+package components
+
+import "htmx-with-templ/view/models"
+
+templ ContactForm(fd *models.FormData) {
+	<form class="flex gap-8 bg-white p-8 rounded-xl" hx-swap="outerHTML" hx-post={ string(templ.URL("/contacts")) }>
+		@Input(NewInputAttributes("name", WithInputValue(fd.Data["name"]), WithInputErrorMessage(fd.Errors["name"])))
+		@Input(NewInputAttributes("email", WithInputValue(fd.Data["email"]), WithInputErrorMessage(fd.Errors["email"]), WithInputType(InputType.Email)))
+		<button type="submit">Add contact</button>
+	</form>
+}

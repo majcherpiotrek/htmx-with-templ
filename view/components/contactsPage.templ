@@ -1,0 +1,11 @@
+package components
+
+import "htmx-with-templ/view/models"
+
+templ ContactPage(contactFormData *models.FormData, contacts *[]models.ContactReadModel) {
+	<div class="flex flex-col gap-4">
+		@ContactForm(contactFormData)
+		<hr/>
+		@ContactList(contacts, false)
+	</div>
+}

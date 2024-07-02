@@ -1,0 +1,9 @@
+package components
+
+import "htmx-with-templ/view/models"
+
+templ Contact(contact *models.ContactReadModel) {
+	<li>
+		{ contact.Name }, { contact.Email }
+	</li>
+}
