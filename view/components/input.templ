@@ -1,5 +1,7 @@
 package components
 
+import "htmx-with-templ/view/components/utils"
+
 type inputType int
 
 const (
@@ -63,12 +65,12 @@ func WithAutofocus(af bool) func(*InputAttributes) {
 	return func(attrs *InputAttributes) { attrs.Autofocus = af }
 }
 
-templ Input(attrs *InputAttributes, elementAttrs *templ.Attributes) {
+templ Input(attrs *InputAttributes, elementAttrs ...*templ.Attributes) {
 	<div class="flex flex-col gap-1">
 		// Initial state
 		if len(attrs.Error) == 0 && len(attrs.Value) == 0 {
 			<input
-				{ *elementAttrs... }
+				{ utils.MergeAttributes(elementAttrs...)... }
 				class="border m-[1px] border-slate-500 rounded-lg outline-sky-400 px-4 py-2"
 				name={ attrs.Name }
 				value={ attrs.Value }
@@ -79,7 +81,7 @@ templ Input(attrs *InputAttributes, elementAttrs *templ.Attributes) {
 		// Error state
 		if len(attrs.Error) > 0 {
 			<input
-				{ *elementAttrs... }
+				{ utils.MergeAttributes(elementAttrs...)... }
 				class="border-2 m-0 border-red-400 rounded-lg outline-sky-400 px-4 py-2"
 				name={ attrs.Name }
 				value={ attrs.Value }
@@ -89,7 +91,7 @@ templ Input(attrs *InputAttributes, elementAttrs *templ.Attributes) {
 		// Success state
 		if len(attrs.Error) == 0 && len(attrs.Value) > 0 {
 			<input
-				{ *elementAttrs... }
+				{ utils.MergeAttributes(elementAttrs...)... }
 				class="border-2 m-0 border-lime-500 rounded-lg outline-sky-400 px-4 py-2"
 				name={ attrs.Name }
 				value={ attrs.Value }
