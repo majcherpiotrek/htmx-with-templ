@@ -1,12 +1,11 @@
 package components
 
-import "htmx-with-templ/view/components/utils"
-
 type inputType int
 
 const (
 	Text inputType = iota
 	Email
+	Number
 )
 
 func (it inputType) String() string {
@@ -15,27 +14,31 @@ func (it inputType) String() string {
 		return "text"
 	case Email:
 		return "email"
+	case Number:
+		return "number"
 	default:
 		return ""
 	}
 }
 
 type inputTypeStruct struct {
-	Text  inputType
-	Email inputType
+	Text   inputType
+	Email  inputType
+	Number inputType
 }
 
-var InputType = inputTypeStruct{Text: Text, Email: Email}
+var InputType = inputTypeStruct{Text: Text, Email: Email, Number: Number}
 
 type InputAttributes struct {
-	Name  string
-	Value string
-	Error string
-	Type  inputType
+	Name      string
+	Value     string
+	Error     string
+	Type      inputType
+	Autofocus bool
 }
 
 func NewInputAttributes(name string, opts ...func(*InputAttributes)) *InputAttributes {
-	attrs := &InputAttributes{Name: name, Value: "", Error: "", Type: InputType.Text}
+	attrs := &InputAttributes{Name: name, Value: "", Error: "", Type: InputType.Text, Autofocus: false}
 
 	for _, opt := range opts {
 		opt(attrs)
@@ -56,22 +59,43 @@ func WithInputType(inputType inputType) func(*InputAttributes) {
 	return func(attrs *InputAttributes) { attrs.Type = inputType }
 }
 
+func WithAutofocus(af bool) func(*InputAttributes) {
+	return func(attrs *InputAttributes) { attrs.Autofocus = af }
+}
+
 templ Input(attrs *InputAttributes, elementAttrs *templ.Attributes) {
 	<div class="flex flex-col gap-1">
-		<input
-			{ *elementAttrs... }
-			class={ utils.ClassNames(
-				"border rounded-lg outline-sky-400 px-4 py-2", 
-				utils.NewConditionalClass(
-					len(attrs.Error) > 0,
-					"border-red-400",
-					"border-slate-500",
-				),
-			) }
-			name={ attrs.Name }
-			value={ attrs.Value }
-			type={ attrs.Type.String() }
-		/>
+		// Initial state
+		if len(attrs.Error) == 0 && len(attrs.Value) == 0 {
+			<input
+				{ *elementAttrs... }
+				class="border m-[1px] border-slate-500 rounded-lg outline-sky-400 px-4 py-2"
+				name={ attrs.Name }
+				value={ attrs.Value }
+				type={ attrs.Type.String() }
+				autofocus?={ attrs.Autofocus }
+			/>
+		}
+		// Error state
+		if len(attrs.Error) > 0 {
+			<input
+				{ *elementAttrs... }
+				class="border-2 m-0 border-red-400 rounded-lg outline-sky-400 px-4 py-2"
+				name={ attrs.Name }
+				value={ attrs.Value }
+				type={ attrs.Type.String() }
+			/>
+		}
+		// Success state
+		if len(attrs.Error) == 0 && len(attrs.Value) > 0 {
+			<input
+				{ *elementAttrs... }
+				class="border-2 m-0 border-lime-500 rounded-lg outline-sky-400 px-4 py-2"
+				name={ attrs.Name }
+				value={ attrs.Value }
+				type={ attrs.Type.String() }
+			/>
+		}
 		@inputErrorMessage(attrs.Error)
 	</div>
 }
