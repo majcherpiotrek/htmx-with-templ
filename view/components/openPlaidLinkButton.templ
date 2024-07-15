@@ -1,0 +1,9 @@
+package components
+
+templ OpenPlaidLinkButton(token string) {
+	@templ.JSONScript("plaidToken", map[string]string{"token": token})
+	<script src="/assets/js/plaidLink.js"></script>
+	@Button(templ.Attributes{"id": "plaidLinkButton"}) {
+		Open plaid link
+	}
+}
