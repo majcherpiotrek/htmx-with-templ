@@ -1,7 +1,7 @@
-import * as z from "zod";
+import type { ZodType } from "zod";
 
 
-export const getServerProps = <T>(propsId: string, schema: z.ZodType<T>): T => {
+export const getServerProps = <T>(propsId: string, schema: ZodType<T>): T => {
   try {
     const rawJson = JSON.parse(document.getElementById(propsId)?.textContent ?? "");
 

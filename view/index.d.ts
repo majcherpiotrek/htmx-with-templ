@@ -1,3 +1,5 @@
+import * as z from "zod";
+
 declare global {
   interface HTMXBeforeSwapEvent extends Event {
     detail: {
@@ -32,6 +34,7 @@ declare global {
 
   interface Window {
     Plaid: Plaid;
+    Zod: typeof z;
   }
 }
 

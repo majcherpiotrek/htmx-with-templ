@@ -1,9 +1,11 @@
-const props = JSON.parse(document.getElementById("plaidToken")?.textContent ?? "");
+import { getServerProps } from "./utils";
 
-console.log("read props added by server", props);
+const props = getServerProps("plaidToken", window.Zod.object({ token: window.Zod.string() }));
+
+console.log("does this even run?", props);
 
 const handler = window.Plaid.create({
-  token: props["token"],
+  token: props.token,
   onSuccess: (publicToken, meta) => {
     console.log("success");
     console.log({ publicToken, meta });
@@ -17,9 +19,6 @@ const handler = window.Plaid.create({
     console.log({ eventName, metadata });
   }
 });
-
-console.log("handler", handler);
-
 
 document.addEventListener("DOMContentLoaded", () => {
   const plaidLinkButton = document.getElementById("plaidLinkButton");
