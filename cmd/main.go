@@ -1,6 +1,8 @@
 package main
 
 import (
+	"context"
+	"fmt"
 	"net/http"
 	"os"
 
@@ -14,6 +16,13 @@ import (
 	domainModels "htmx-with-templ/domain/models"
 	"htmx-with-templ/view/components"
 	viewModels "htmx-with-templ/view/models"
+
+	"github.com/golang-migrate/migrate/v4"
+	"github.com/golang-migrate/migrate/v4/database/pgx/v5"
+	_ "github.com/golang-migrate/migrate/v4/database/postgres"
+	_ "github.com/golang-migrate/migrate/v4/source/file"
+	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/jackc/pgx/v5/stdlib"
 )
 
 var (
@@ -23,6 +32,7 @@ var (
 	PLAID_PRODUCTS      = ""
 	PLAID_COUNTRY_CODES = ""
 	PLAID_REDIRECT_URI  = ""
+	DATABASE_URL        = ""
 )
 
 func renderComponent(ctx echo.Context, status int, t templ.Component) error {
@@ -105,6 +115,18 @@ func main() {
 	PLAID_PRODUCTS = os.Getenv("PLAID_PRODUCTS")
 	PLAID_COUNTRY_CODES = os.Getenv("PLAID_COUNTRY_CODES")
 	PLAID_REDIRECT_URI = os.Getenv("PLAID_REDIRECT_URI")
+	DATABASE_URL = os.Getenv("DATABASE_URL")
+
+	dbpool, err := pgxpool.New(context.Background(), os.Getenv("DATABASE_URL"))
+	if err != nil {
+		log.Fatalf("Unable to connect to database: %v\n", err)
+	}
+	defer dbpool.Close()
+
+	err = runMigrations(dbpool)
+	if err != nil {
+		log.Fatalf("Faied to run migrations: %v\n", err)
+	}
 
 	plaidClient, err := banking.NewPlaidClient(banking.PlaidClientConfig{
 		ClientId:     PLAID_CLIENT_ID,
@@ -203,4 +225,41 @@ func main() {
 	})
 
 	e.Logger.Fatal(e.Start(":42069"))
+}
+
+func runMigrations(dbpool *pgxpool.Pool) error {
+	log.Infof("Database migration started")
+
+	db := stdlib.OpenDBFromPool(dbpool)
+	log.Infof("DB connection acquired")
+
+	driver, err := pgx.WithInstance(db, &pgx.Config{})
+	if err != nil {
+		return fmt.Errorf("Could not create SQL migration driver: %v", err)
+	}
+	log.Infof("PGX driver created")
+
+	m, err := migrate.NewWithDatabaseInstance(
+		"file://db/migrations",
+		"pgx", driver)
+	if err != nil {
+		return fmt.Errorf("Could not create migration client: %v", err)
+	}
+	log.Infof("Migration client created")
+
+	err = m.Up()
+
+	if err != nil && err != migrate.ErrNoChange {
+		return fmt.Errorf("An error occurred while running the migrations: %v", err)
+	}
+
+	if err == migrate.ErrNoChange {
+		log.Infof("Database is up to date")
+	}
+
+	if err == nil {
+		log.Infof("Migrations succesfully applied")
+	}
+
+	return nil
 }
