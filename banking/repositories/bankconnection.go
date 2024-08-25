@@ -2,7 +2,7 @@ package repositories
 
 import (
 	"context"
-	"htmx-with-templ/banking/models"
+	"nerdmoney/banking/models"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 )

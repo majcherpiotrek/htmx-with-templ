@@ -1,6 +1,6 @@
 package models
 
-import domainModels "htmx-with-templ/domain/models"
+import domainModels "nerdmoney/domain/models"
 
 type ContactWriteModel struct {
 	name  string

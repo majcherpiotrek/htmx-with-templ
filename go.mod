@@ -1,4 +1,4 @@
-module htmx-with-templ
+module nerdmoney
 
 go 1.22.0
 

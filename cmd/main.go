@@ -12,12 +12,12 @@ import (
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/labstack/gommon/log"
 
-	"htmx-with-templ/banking"
-	bankingRepositories "htmx-with-templ/banking/repositories"
+	"nerdmoney/banking"
+	bankingRepositories "nerdmoney/banking/repositories"
 
-	domainModels "htmx-with-templ/domain/models"
-	"htmx-with-templ/view/components"
-	viewModels "htmx-with-templ/view/models"
+	domainModels "nerdmoney/domain/models"
+	"nerdmoney/view/components"
+	viewModels "nerdmoney/view/models"
 
 	"github.com/golang-migrate/migrate/v4"
 	"github.com/golang-migrate/migrate/v4/database/pgx/v5"
