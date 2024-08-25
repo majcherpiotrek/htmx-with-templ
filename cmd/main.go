@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/a-h/templ"
 	"github.com/joho/godotenv"
@@ -13,11 +14,10 @@ import (
 	"github.com/labstack/gommon/log"
 
 	"nerdmoney/banking"
+	"nerdmoney/banking/models"
 	bankingRepositories "nerdmoney/banking/repositories"
 
-	domainModels "nerdmoney/domain/models"
 	"nerdmoney/view/components"
-	viewModels "nerdmoney/view/models"
 
 	"github.com/golang-migrate/migrate/v4"
 	"github.com/golang-migrate/migrate/v4/database/pgx/v5"
@@ -53,61 +53,17 @@ func renderPage(ctx echo.Context, status int, pageContent templ.Component) error
 	return renderComponent(ctx, status, components.Index(pageContent))
 }
 
-type Contacts = []domainModels.Contact
-
-func hasContactWithEmail(contacts *Contacts, email string) bool {
-	for _, contact := range *contacts {
-		if contact.Email == email {
-			return true
-		}
-	}
-
-	return false
-}
-
-var id = 0
-
-func validateName(fd *viewModels.FormData) *viewModels.FormData {
-	name := fd.Data["name"]
-
-	if len(name) < 1 {
-		fd.AddError("name", "Name is required")
-	}
-
-	return fd
-}
-
-func validateEmail(fd *viewModels.FormData, contacts *Contacts) *viewModels.FormData {
-	email := fd.Data["email"]
-
-	if len(email) < 1 {
-		fd.AddError("email", "Email is required")
-	}
-
-	if hasContactWithEmail(contacts, email) {
-		fd.AddError("email", "A user with this email already exists")
-	}
-
-	return fd
-}
-
-func validateContactFormData(fd *viewModels.FormData, contacts *Contacts) *viewModels.FormData {
-	validateName(fd)
-	validateEmail(fd, contacts)
-	return fd
-}
-
 func main() {
 	e := echo.New()
 
 	e.Use(middleware.Logger())
-	e.Logger.SetLevel(log.INFO)
+	e.Logger.SetLevel(log.DEBUG)
 	e.Static("/assets", "assets")
 
 	// Load .env file
 	err := godotenv.Load()
 	if err != nil {
-		log.Fatalf("Error loading .env file: %v", err)
+		e.Logger.Fatalf("Error loading .env file: %v", err)
 	}
 
 	// Assign environment variables to the corresponding variables
@@ -121,13 +77,13 @@ func main() {
 
 	dbpool, err := pgxpool.New(context.Background(), os.Getenv("DATABASE_URL"))
 	if err != nil {
-		log.Fatalf("Unable to connect to database: %v\n", err)
+		e.Logger.Fatalf("Unable to connect to database: %v\n", err)
 	}
 	defer dbpool.Close()
 
-	err = runMigrations(dbpool)
+	err = runMigrations(dbpool, e.Logger)
 	if err != nil {
-		log.Fatalf("Faied to run migrations: %v\n", err)
+		e.Logger.Fatalf("Faied to run migrations: %v\n", err)
 	}
 
 	plaidClient, err := banking.NewPlaidClient(banking.PlaidClientConfig{
@@ -140,17 +96,15 @@ func main() {
 	})
 
 	if err != nil {
-		log.Fatalf("Error initializing PlaidClient: %v", err)
+		e.Logger.Fatalf("Error initializing PlaidClient: %v", err)
 	}
 
-	bankConnectionRepository := bankingRepositories.NewBankConnectionRepository(dbpool)
+	bankConnectionRepository := bankingRepositories.NewBankConnectionRepository(dbpool, e.Logger)
+	bankAccountRepository := bankingRepositories.NewBankAccountRepository(dbpool, e.Logger)
 
-	contacts := Contacts{}
 	linkToken := ""
 
 	e.GET("/", func(c echo.Context) error {
-		contactReadModels := viewModels.MapContacts(&contacts)
-
 		linkTokenResponse, err := plaidClient.CreateLinkToken()
 		if err != nil {
 			return c.String(500, "Something went wrong")
@@ -161,7 +115,7 @@ func main() {
 		return renderComponent(
 			c,
 			200,
-			components.Index(components.ContactPage(viewModels.NewFormData(), contactReadModels, linkTokenResponse.LinkToken)),
+			components.Index(components.MainPage(linkTokenResponse.LinkToken)),
 		)
 	})
 
@@ -178,91 +132,82 @@ func main() {
 			return c.String(500, "Failed to get item access token from Plaid")
 		}
 
-		_, err = bankConnectionRepository.Save(itemAccessToken.ItemId, itemAccessToken.AccessToken)
+		authGetResponse, err := plaidClient.AuthGet(itemAccessToken.AccessToken)
 
 		if err != nil {
-			return c.String(500, "Failed to save bank connection")
+			return c.String(500, "Failed to get account data from Plaid")
 		}
 
-		contactReadModels := viewModels.MapContacts(&contacts)
+		e.Logger.Info("Auth get response", authGetResponse.Item)
+
+		bankConnectionWriteModel := models.BankConnectionWriteModel{
+			PlaidItemID:                itemAccessToken.ItemId,
+			AccessToken:                itemAccessToken.AccessToken,
+			ConsentExpirationTimestamp: authGetResponse.Item.ConsentExpirationTime.Get(),
+			LoginRequired:              false,
+		}
+
+		ctx, cancel := context.WithTimeout(c.Request().Context(), 10*time.Second)
+
+		defer cancel()
+
+		e.Logger.Debugf("Starting transaction...")
+		tx, err := dbpool.Begin(ctx)
+
+		if err != nil {
+			e.Logger.Errorf("Failed to start transaction: %w", err)
+			return c.String(500, fmt.Sprintf("Failed to start transaction: %+v", err))
+		}
+
+		bankConnection, err := bankConnectionRepository.Save(bankConnectionWriteModel)
+
+		if err != nil {
+			tx.Rollback(ctx)
+			e.Logger.Errorf("Failed to save bank connection: %w", err)
+			return c.String(500, fmt.Sprintf("Failed to save bank connection: %+v", err))
+		}
+
+		for _, plaidAccount := range authGetResponse.Accounts {
+			accountWriteModel := models.BankAccountWriteModel{
+				PlaidAccountId:   plaidAccount.AccountId,
+				BankConnectionID: bankConnection.ID,
+				Name:             plaidAccount.Name,
+				Mask:             plaidAccount.Mask.Get(),
+				AccountType:      string(plaidAccount.Type),
+			}
+
+			_, err := bankAccountRepository.Save(accountWriteModel)
+
+			if err != nil {
+				tx.Rollback(ctx)
+				e.Logger.Errorf("Failed to save Plaid Account - %+v. Error was: %w", accountWriteModel, err)
+				return c.String(500, fmt.Sprintf("Failed to save Plaid Account - %+v. Error was: %+v", accountWriteModel, err))
+			}
+
+		}
+
+		e.Logger.Debugf("Comitting transaction...")
+		err = tx.Commit(ctx)
+
+		if err != nil {
+			tx.Rollback(ctx)
+			e.Logger.Errorf("Failed to commit transaction: %w", err)
+			return c.String(500, fmt.Sprintf("Failed to commit transaction: %+v", err))
+		}
+
+		e.Logger.Infof("Successfully saved new bank connection with %d accounts", len(authGetResponse.Accounts))
 
 		return renderComponent(
 			c,
 			200,
-			components.Index(components.ContactPage(viewModels.NewFormData(), contactReadModels, linkToken)),
+			components.Index(components.MainPage(linkToken)),
 		)
-	})
-
-	e.POST("/validate", func(c echo.Context) error {
-		name := c.FormValue("name")
-		email := c.FormValue("email")
-
-		formData := viewModels.NewFormData()
-		formData.AddValue("name", name)
-		formData.AddValue("email", email)
-
-		validateContactFormData(formData, &contacts)
-
-		if formData.HasErrors() {
-			return renderComponent(c, 422, components.ContactForm(formData))
-		}
-
-		return renderComponent(c, 200, components.ContactForm(formData))
-	})
-
-	e.POST("/validate/:field", func(c echo.Context) error {
-		field := c.Param("field")
-
-		name := c.FormValue("name")
-		email := c.FormValue("email")
-
-		formData := viewModels.NewFormData()
-		formData.AddValue("name", name)
-		formData.AddValue("email", email)
-
-		if field == "name" {
-			validateName(formData)
-			return renderComponent(c, 200, components.NameInput(name, formData.Errors["name"]))
-		}
-
-		if field == "email" {
-			validateEmail(formData, &contacts)
-			return renderComponent(c, 200, components.EmailInput(email, formData.Errors["email"]))
-		}
-
-		return c.String(400, "Invalid form field")
-	})
-
-	e.POST("/contacts", func(c echo.Context) error {
-		name := c.FormValue("name")
-		email := c.FormValue("email")
-
-		formData := viewModels.NewFormData()
-		formData.AddValue("name", name)
-		formData.AddValue("email", email)
-
-		validateContactFormData(formData, &contacts)
-
-		if formData.HasErrors() {
-			return renderComponent(c, 422, components.ContactForm(formData))
-		}
-
-		contactToAdd := domainModels.Contact{Id: id, Name: name, Email: email}
-
-		contacts = append(contacts, contactToAdd)
-		id++
-
-		addedContactReadModel := viewModels.FromContactDomainModel(contactToAdd)
-
-		renderComponent(c, 200, components.ContactList(&[]viewModels.ContactReadModel{*addedContactReadModel}, true))
-
-		return renderComponent(c, 200, components.ContactForm(viewModels.NewFormData()))
 	})
 
 	e.Logger.Fatal(e.Start(":42069"))
 }
 
-func runMigrations(dbpool *pgxpool.Pool) error {
+func runMigrations(dbpool *pgxpool.Pool, log echo.Logger) error {
 	log.Infof("Database migration started")
 
 	db := stdlib.OpenDBFromPool(dbpool)
