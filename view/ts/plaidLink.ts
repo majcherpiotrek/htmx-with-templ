@@ -9,6 +9,11 @@ const handler = window.Plaid.create({
   onSuccess: (publicToken, meta) => {
     console.log("success");
     console.log({ publicToken, meta });
+    window.htmx.ajax("POST", "http://localhost:42069/banks", {
+      values: {
+        publicToken
+      }
+    });
   },
   onExit: (error, metadata) => {
     console.log("exit");

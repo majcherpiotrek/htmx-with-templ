@@ -13,6 +13,8 @@ import (
 	"github.com/labstack/gommon/log"
 
 	"htmx-with-templ/banking"
+	bankingRepositories "htmx-with-templ/banking/repositories"
+
 	domainModels "htmx-with-templ/domain/models"
 	"htmx-with-templ/view/components"
 	viewModels "htmx-with-templ/view/models"
@@ -141,7 +143,10 @@ func main() {
 		log.Fatalf("Error initializing PlaidClient: %v", err)
 	}
 
+	bankConnectionRepository := bankingRepositories.NewBankConnectionRepository(dbpool)
+
 	contacts := Contacts{}
+	linkToken := ""
 
 	e.GET("/", func(c echo.Context) error {
 		contactReadModels := viewModels.MapContacts(&contacts)
@@ -151,10 +156,40 @@ func main() {
 			return c.String(500, "Something went wrong")
 		}
 
+		linkToken = linkTokenResponse.LinkToken
+
 		return renderComponent(
 			c,
 			200,
 			components.Index(components.ContactPage(viewModels.NewFormData(), contactReadModels, linkTokenResponse.LinkToken)),
+		)
+	})
+
+	e.POST("/banks", func(c echo.Context) error {
+		publicToken := c.FormValue("publicToken")
+
+		if len(publicToken) < 1 {
+			return c.String(400, "'publicToken' missing in the request")
+		}
+
+		itemAccessToken, err := plaidClient.GetAccessToken(publicToken)
+
+		if err != nil {
+			return c.String(500, "Failed to get item access token from Plaid")
+		}
+
+		_, err = bankConnectionRepository.Save(itemAccessToken.ItemId, itemAccessToken.AccessToken)
+
+		if err != nil {
+			return c.String(500, "Failed to save bank connection")
+		}
+
+		contactReadModels := viewModels.MapContacts(&contacts)
+
+		return renderComponent(
+			c,
+			200,
+			components.Index(components.ContactPage(viewModels.NewFormData(), contactReadModels, linkToken)),
 		)
 	})
 
