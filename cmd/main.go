@@ -119,6 +119,30 @@ func main() {
 		)
 	})
 
+	e.GET("/bank-accounts", func(c echo.Context) error {
+
+		bankAccounts, err := bankAccountRepository.ListAll()
+
+		if err != nil {
+			log.Errorf("Failed to list bank accounts: %w", err)
+			return c.String(500, "Something went wrong when listing bank accounts...")
+		}
+
+		accountNames := make([]string, len(bankAccounts))
+
+		for _, bankAccount := range bankAccounts {
+			accountNames = append(accountNames, bankAccount.Name)
+		}
+
+		log.Infof("Account names: %v", accountNames)
+
+		return renderComponent(
+			c,
+			200,
+			components.BankAccountList(accountNames),
+		)
+	})
+
 	e.POST("/banks", func(c echo.Context) error {
 		publicToken := c.FormValue("publicToken")
 

@@ -1,0 +1,19 @@
+package components
+
+templ BankAccountList(accounts []string) {
+	<ul>
+		for _, account := range accounts {
+			<li>
+				@BankAccount(account)
+			</li>
+		}
+	</ul>
+}
+
+templ BankAccountListSkeleton() {
+	<ul hx-get="/bank-accounts" hx-trigger="load" hx-swap="outerHTML">
+		<li>Loading...</li>
+		<li>Loading...</li>
+		<li>Loading...</li>
+	</ul>
+}

@@ -18,6 +18,49 @@ func NewBankAccountRepository(pool *pgxpool.Pool, log echo.Logger) BankAccountRe
 	return BankAccountRepository{pool, log}
 }
 
+func (r *BankAccountRepository) ListAll() ([]models.BankAccount, error) {
+	r.log.Debugf("Attempting to list all bank accounts")
+
+	query := `SELECT * FROM bank_account`
+
+	rows, err := r.pool.Query(context.Background(), query)
+
+	if err != nil {
+		return []models.BankAccount{}, fmt.Errorf("Failed to list all bank accounts: %w", err)
+	}
+
+	var allAccounts []models.BankAccount
+
+	for rows.Next() {
+		var bankAccount = models.BankAccount{}
+		var accountTypeStr string
+
+		rows.Scan(
+			&bankAccount.ID,
+			&bankAccount.PlaidAccountId,
+			&bankAccount.BankConnectionID,
+			&bankAccount.Name,
+			&bankAccount.Mask,
+			&accountTypeStr,
+		)
+
+		accountType, err := models.ParseAccountType(accountTypeStr)
+
+		if err != nil {
+			return []models.BankAccount{}, fmt.Errorf("Failed to parse bank account type for bank account with ID='%d': %w", bankAccount.ID, err)
+		}
+
+		bankAccount.AccountType = accountType
+		allAccounts = append(allAccounts, bankAccount)
+	}
+
+	if err := rows.Err(); err != nil {
+		return []models.BankAccount{}, fmt.Errorf("Failed to read rows when trying to list all bank accounts: %w", err)
+	}
+
+	return allAccounts, nil
+}
+
 func (r *BankAccountRepository) Save(writeModel models.BankAccountWriteModel) (models.BankAccount, error) {
 	r.log.Debugf("Attempting to save a new BankAccount: %+v", writeModel)
 
