@@ -13,11 +13,12 @@ import (
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/labstack/gommon/log"
 
-	"nerdmoney/banking"
-	"nerdmoney/banking/models"
-	bankingRepositories "nerdmoney/banking/repositories"
-
-	"nerdmoney/view/components"
+	"nerdmoney/pkg/accounts"
+	"nerdmoney/pkg/accounts/models"
+	bankingRepositories "nerdmoney/pkg/accounts/repositories"
+	"nerdmoney/pkg/banking"
+	"nerdmoney/pkg/common/layout"
+	"nerdmoney/pkg/home"
 
 	"github.com/golang-migrate/migrate/v4"
 	"github.com/golang-migrate/migrate/v4/database/pgx/v5"
@@ -50,7 +51,7 @@ func renderComponent(ctx echo.Context, status int, t templ.Component) error {
 }
 
 func renderPage(ctx echo.Context, status int, pageContent templ.Component) error {
-	return renderComponent(ctx, status, components.Index(pageContent))
+	return renderComponent(ctx, status, layout.Index(pageContent))
 }
 
 func main() {
@@ -115,7 +116,7 @@ func main() {
 		return renderComponent(
 			c,
 			200,
-			components.Index(components.MainPage(linkTokenResponse.LinkToken)),
+			layout.Index(home.HomePage(linkTokenResponse.LinkToken)),
 		)
 	})
 
@@ -139,7 +140,7 @@ func main() {
 		return renderComponent(
 			c,
 			200,
-			components.BankAccountList(accountNames),
+			accounts.BankAccountList(accountNames),
 		)
 	})
 
@@ -224,7 +225,7 @@ func main() {
 		return renderComponent(
 			c,
 			200,
-			components.Index(components.MainPage(linkToken)),
+			layout.Index(home.HomePage(linkToken)),
 		)
 	})
 

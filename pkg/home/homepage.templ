@@ -1,0 +1,13 @@
+package home
+
+import (
+	"nerdmoney/pkg/accounts"
+	"nerdmoney/pkg/banking"
+)
+
+templ HomePage(plaidToken string) {
+	<div>
+		@accounts.BankAccountListSkeleton()
+		@banking.PlaidLinkButton(plaidToken)
+	</div>
+}

@@ -1,0 +1,13 @@
+package banking
+
+import (
+	"nerdmoney/pkg/common/uikit"
+)
+
+templ PlaidLinkButton(token string) {
+	@templ.JSONScript("plaidToken", map[string]string{"token": token})
+	<script src="/assets/js/plaidLink.js"></script>
+	@uikit.Button(templ.Attributes{"id": "plaidLinkButton"}) {
+		Open plaid link
+	}
+}

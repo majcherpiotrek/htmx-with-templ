@@ -1,8 +1,11 @@
 import { build } from 'esbuild';
 import { sync } from 'glob';
 
-// Get all TypeScript files in the pages directory
-const entryPoints = sync('./ts/**/*.ts');
+const entryPoints = sync('./**/*.ts', {
+  ignore: ["node_modules/**"]
+});
+
+console.log("Files to build:", entryPoints);
 
 const isDev = process.env.NODE_ENV === 'development';
 

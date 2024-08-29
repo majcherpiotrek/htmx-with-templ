@@ -1,4 +1,4 @@
-import { getServerProps } from "./utils";
+import { getServerProps } from "../common/utils/utils";
 
 const props = getServerProps("plaidToken", window.Zod.object({ token: window.Zod.string() }));
 
