@@ -9,16 +9,25 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
-type BankConnectionRepository struct {
+type BankConnectionRepository interface {
+	Save(writeModel models.BankConnectionWriteModel) (models.BankConnection, error)
+	DbPool() *pgxpool.Pool
+}
+
+type bankConnectionRepositoryImpl struct {
 	pool *pgxpool.Pool
 	log  echo.Logger
 }
 
 func NewBankConnectionRepository(pool *pgxpool.Pool, log echo.Logger) BankConnectionRepository {
-	return BankConnectionRepository{pool, log}
+	return &bankConnectionRepositoryImpl{pool, log}
 }
 
-func (r *BankConnectionRepository) Save(writeModel models.BankConnectionWriteModel) (models.BankConnection, error) {
+func (r *bankConnectionRepositoryImpl) DbPool() *pgxpool.Pool {
+	return r.pool
+}
+
+func (r *bankConnectionRepositoryImpl) Save(writeModel models.BankConnectionWriteModel) (models.BankConnection, error) {
 	r.log.Debugf("Attempting to save a new BankConnection: %+v", writeModel)
 
 	query := `

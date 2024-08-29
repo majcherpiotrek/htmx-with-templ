@@ -9,16 +9,26 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
-type BankAccountRepository struct {
+type BankAccountRepository interface {
+	ListAll() ([]models.BankAccount, error)
+	Save(models.BankAccountWriteModel) (models.BankAccount, error)
+	DbPool() *pgxpool.Pool
+}
+
+type bankAccountRepositoryImpl struct {
 	pool *pgxpool.Pool
 	log  echo.Logger
 }
 
 func NewBankAccountRepository(pool *pgxpool.Pool, log echo.Logger) BankAccountRepository {
-	return BankAccountRepository{pool, log}
+	return &bankAccountRepositoryImpl{pool, log}
 }
 
-func (r *BankAccountRepository) ListAll() ([]models.BankAccount, error) {
+func (r *bankAccountRepositoryImpl) DbPool() *pgxpool.Pool {
+	return r.pool
+}
+
+func (r *bankAccountRepositoryImpl) ListAll() ([]models.BankAccount, error) {
 	r.log.Debugf("Attempting to list all bank accounts")
 
 	query := `SELECT * FROM bank_account`
@@ -61,7 +71,7 @@ func (r *BankAccountRepository) ListAll() ([]models.BankAccount, error) {
 	return allAccounts, nil
 }
 
-func (r *BankAccountRepository) Save(writeModel models.BankAccountWriteModel) (models.BankAccount, error) {
+func (r *bankAccountRepositoryImpl) Save(writeModel models.BankAccountWriteModel) (models.BankAccount, error) {
 	r.log.Debugf("Attempting to save a new BankAccount: %+v", writeModel)
 
 	query := `

@@ -3,21 +3,16 @@ package main
 import (
 	"context"
 	"fmt"
-	"net/http"
 	"os"
-	"time"
 
-	"github.com/a-h/templ"
 	"github.com/joho/godotenv"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/labstack/gommon/log"
 
 	"nerdmoney/pkg/accounts"
-	"nerdmoney/pkg/accounts/models"
-	bankingRepositories "nerdmoney/pkg/accounts/repositories"
+	"nerdmoney/pkg/accounts/repositories"
 	"nerdmoney/pkg/banking"
-	"nerdmoney/pkg/common/layout"
 	"nerdmoney/pkg/home"
 
 	"github.com/golang-migrate/migrate/v4"
@@ -37,22 +32,6 @@ var (
 	PLAID_REDIRECT_URI  = ""
 	DATABASE_URL        = ""
 )
-
-func renderComponent(ctx echo.Context, status int, t templ.Component) error {
-	ctx.Response().Header().Set(echo.HeaderContentType, echo.MIMETextHTML)
-	ctx.Response().Writer.WriteHeader(status)
-
-	err := t.Render(ctx.Request().Context(), ctx.Response().Writer)
-	if err != nil {
-		return ctx.String(http.StatusInternalServerError, "failed to render response template")
-	}
-
-	return nil
-}
-
-func renderPage(ctx echo.Context, status int, pageContent templ.Component) error {
-	return renderComponent(ctx, status, layout.Index(pageContent))
-}
 
 func main() {
 	e := echo.New()
@@ -76,13 +55,13 @@ func main() {
 	PLAID_REDIRECT_URI = os.Getenv("PLAID_REDIRECT_URI")
 	DATABASE_URL = os.Getenv("DATABASE_URL")
 
-	dbpool, err := pgxpool.New(context.Background(), os.Getenv("DATABASE_URL"))
+	dbPool, err := pgxpool.New(context.Background(), os.Getenv("DATABASE_URL"))
 	if err != nil {
 		e.Logger.Fatalf("Unable to connect to database: %v\n", err)
 	}
-	defer dbpool.Close()
+	defer dbPool.Close()
 
-	err = runMigrations(dbpool, e.Logger)
+	err = runMigrations(dbPool, e.Logger)
 	if err != nil {
 		e.Logger.Fatalf("Faied to run migrations: %v\n", err)
 	}
@@ -95,139 +74,17 @@ func main() {
 		CountryCodes: PLAID_COUNTRY_CODES,
 		RedirectUri:  PLAID_REDIRECT_URI,
 	})
-
 	if err != nil {
 		e.Logger.Fatalf("Error initializing PlaidClient: %v", err)
 	}
 
-	bankConnectionRepository := bankingRepositories.NewBankConnectionRepository(dbpool, e.Logger)
-	bankAccountRepository := bankingRepositories.NewBankAccountRepository(dbpool, e.Logger)
+	// Instantiate repositories
+	bankConnectionRepository := repositories.NewBankConnectionRepository(dbPool, e.Logger)
+	bankAccountRepository := repositories.NewBankAccountRepository(dbPool, e.Logger)
 
-	linkToken := ""
-
-	e.GET("/", func(c echo.Context) error {
-		linkTokenResponse, err := plaidClient.CreateLinkToken()
-		if err != nil {
-			return c.String(500, "Something went wrong")
-		}
-
-		linkToken = linkTokenResponse.LinkToken
-
-		return renderComponent(
-			c,
-			200,
-			layout.Index(home.HomePage(linkTokenResponse.LinkToken)),
-		)
-	})
-
-	e.GET("/bank-accounts", func(c echo.Context) error {
-
-		bankAccounts, err := bankAccountRepository.ListAll()
-
-		if err != nil {
-			log.Errorf("Failed to list bank accounts: %w", err)
-			return c.String(500, "Something went wrong when listing bank accounts...")
-		}
-
-		accountNames := make([]string, len(bankAccounts))
-
-		for _, bankAccount := range bankAccounts {
-			accountNames = append(accountNames, bankAccount.Name)
-		}
-
-		log.Infof("Account names: %v", accountNames)
-
-		return renderComponent(
-			c,
-			200,
-			accounts.BankAccountList(accountNames),
-		)
-	})
-
-	e.POST("/banks", func(c echo.Context) error {
-		publicToken := c.FormValue("publicToken")
-
-		if len(publicToken) < 1 {
-			return c.String(400, "'publicToken' missing in the request")
-		}
-
-		itemAccessToken, err := plaidClient.GetAccessToken(publicToken)
-
-		if err != nil {
-			return c.String(500, "Failed to get item access token from Plaid")
-		}
-
-		authGetResponse, err := plaidClient.AuthGet(itemAccessToken.AccessToken)
-
-		if err != nil {
-			return c.String(500, "Failed to get account data from Plaid")
-		}
-
-		e.Logger.Info("Auth get response", authGetResponse.Item)
-
-		bankConnectionWriteModel := models.BankConnectionWriteModel{
-			PlaidItemID:                itemAccessToken.ItemId,
-			AccessToken:                itemAccessToken.AccessToken,
-			ConsentExpirationTimestamp: authGetResponse.Item.ConsentExpirationTime.Get(),
-			LoginRequired:              false,
-		}
-
-		ctx, cancel := context.WithTimeout(c.Request().Context(), 10*time.Second)
-
-		defer cancel()
-
-		e.Logger.Debugf("Starting transaction...")
-		tx, err := dbpool.Begin(ctx)
-
-		if err != nil {
-			e.Logger.Errorf("Failed to start transaction: %w", err)
-			return c.String(500, fmt.Sprintf("Failed to start transaction: %+v", err))
-		}
-
-		bankConnection, err := bankConnectionRepository.Save(bankConnectionWriteModel)
-
-		if err != nil {
-			tx.Rollback(ctx)
-			e.Logger.Errorf("Failed to save bank connection: %w", err)
-			return c.String(500, fmt.Sprintf("Failed to save bank connection: %+v", err))
-		}
-
-		for _, plaidAccount := range authGetResponse.Accounts {
-			accountWriteModel := models.BankAccountWriteModel{
-				PlaidAccountId:   plaidAccount.AccountId,
-				BankConnectionID: bankConnection.ID,
-				Name:             plaidAccount.Name,
-				Mask:             plaidAccount.Mask.Get(),
-				AccountType:      string(plaidAccount.Type),
-			}
-
-			_, err := bankAccountRepository.Save(accountWriteModel)
-
-			if err != nil {
-				tx.Rollback(ctx)
-				e.Logger.Errorf("Failed to save Plaid Account - %+v. Error was: %w", accountWriteModel, err)
-				return c.String(500, fmt.Sprintf("Failed to save Plaid Account - %+v. Error was: %+v", accountWriteModel, err))
-			}
-
-		}
-
-		e.Logger.Debugf("Comitting transaction...")
-		err = tx.Commit(ctx)
-
-		if err != nil {
-			tx.Rollback(ctx)
-			e.Logger.Errorf("Failed to commit transaction: %w", err)
-			return c.String(500, fmt.Sprintf("Failed to commit transaction: %+v", err))
-		}
-
-		e.Logger.Infof("Successfully saved new bank connection with %d accounts", len(authGetResponse.Accounts))
-
-		return renderComponent(
-			c,
-			200,
-			layout.Index(home.HomePage(linkToken)),
-		)
-	})
+	// Register routes
+	home.RegisterHomeRoutes(e, plaidClient)
+	accounts.RegisterAccountRoutes(e, plaidClient, bankConnectionRepository, bankAccountRepository)
 
 	e.Logger.Fatal(e.Start(":42069"))
 }
