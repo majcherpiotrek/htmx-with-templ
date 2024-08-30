@@ -2,7 +2,7 @@ import { getServerProps } from "../common/utils/utils";
 
 const props = getServerProps("plaidToken", window.Zod.object({ token: window.Zod.string() }));
 
-console.log("does this even run?", props);
+const PLAID_LINK_BUTTON_ID = "plaidLinkButton"
 
 const handler = window.Plaid.create({
   token: props.token,
@@ -12,7 +12,9 @@ const handler = window.Plaid.create({
     window.htmx.ajax("POST", "http://localhost:42069/banks", {
       values: {
         publicToken
-      }
+      },
+      source: `#${PLAID_LINK_BUTTON_ID}`,
+      swap: "none"
     });
   },
   onExit: (error, metadata) => {
@@ -26,7 +28,7 @@ const handler = window.Plaid.create({
 });
 
 document.addEventListener("DOMContentLoaded", () => {
-  const plaidLinkButton = document.getElementById("plaidLinkButton");
+  const plaidLinkButton = document.getElementById(PLAID_LINK_BUTTON_ID);
   console.log("added on click listener to plaid button");
 
   plaidLinkButton?.addEventListener("click", () => { handler.open(); })

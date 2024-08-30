@@ -1,7 +1,17 @@
 package accounts
 
 templ BankAccountList(accounts []string) {
-	<ul>
+	<ul id="accounts">
+		for _, account := range accounts {
+			<li>
+				@BankAccount(account)
+			</li>
+		}
+	</ul>
+}
+
+templ AddAcounts(accounts []string) {
+	<ul id="accounts" hx-swap-oob="beforeend:#accounts">
 		for _, account := range accounts {
 			<li>
 				@BankAccount(account)
@@ -11,7 +21,7 @@ templ BankAccountList(accounts []string) {
 }
 
 templ BankAccountListSkeleton() {
-	<ul hx-get="/bank-accounts" hx-trigger="load" hx-swap="outerHTML">
+	<ul id="accounts" hx-get="/bank-accounts" hx-trigger="load" hx-swap="outerHTML">
 		<li>Loading...</li>
 		<li>Loading...</li>
 		<li>Loading...</li>

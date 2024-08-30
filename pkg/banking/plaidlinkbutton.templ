@@ -6,7 +6,7 @@ import (
 
 templ PlaidLinkButton(token string) {
 	@templ.JSONScript("plaidToken", map[string]string{"token": token})
-	<script src="/assets/js/plaidLink.js"></script>
+	<script src="/assets/js/pkg/banking/plaidLink.js"></script>
 	@uikit.Button(templ.Attributes{"id": "plaidLinkButton"}) {
 		Open plaid link
 	}

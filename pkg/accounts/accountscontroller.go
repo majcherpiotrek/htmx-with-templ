@@ -27,8 +27,8 @@ func RegisterAccountRoutes(e *echo.Echo, plaidClient *banking.PlaidClient, bankC
 
 		accountNames := make([]string, len(bankAccounts))
 
-		for _, bankAccount := range bankAccounts {
-			accountNames = append(accountNames, bankAccount.Name)
+		for i, bankAccount := range bankAccounts {
+			accountNames[i] = bankAccount.Name
 		}
 
 		log.Infof("Account names: %v", accountNames)
@@ -88,6 +88,8 @@ func RegisterAccountRoutes(e *echo.Echo, plaidClient *banking.PlaidClient, bankC
 			return c.String(500, fmt.Sprintf("Failed to save bank connection: %+v", err))
 		}
 
+		var bankAccounts []models.BankAccount
+
 		for _, plaidAccount := range authGetResponse.Accounts {
 			accountWriteModel := models.BankAccountWriteModel{
 				PlaidAccountId:   plaidAccount.AccountId,
@@ -97,7 +99,7 @@ func RegisterAccountRoutes(e *echo.Echo, plaidClient *banking.PlaidClient, bankC
 				AccountType:      string(plaidAccount.Type),
 			}
 
-			_, err := bankAccountRepository.Save(accountWriteModel)
+			savedBankAccount, err := bankAccountRepository.Save(accountWriteModel)
 
 			if err != nil {
 				tx.Rollback(ctx)
@@ -105,6 +107,7 @@ func RegisterAccountRoutes(e *echo.Echo, plaidClient *banking.PlaidClient, bankC
 				return c.String(500, fmt.Sprintf("Failed to save Plaid Account - %+v. Error was: %+v", accountWriteModel, err))
 			}
 
+			bankAccounts = append(bankAccounts, savedBankAccount)
 		}
 
 		e.Logger.Debugf("Comitting transaction...")
@@ -116,8 +119,18 @@ func RegisterAccountRoutes(e *echo.Echo, plaidClient *banking.PlaidClient, bankC
 			return c.String(500, fmt.Sprintf("Failed to commit transaction: %+v", err))
 		}
 
-		e.Logger.Infof("Successfully saved new bank connection with %d accounts", len(authGetResponse.Accounts))
+		e.Logger.Infof("Successfully saved new bank connection with %d accounts", len(bankAccounts))
 
-		return c.NoContent(204)
+		accountNames := make([]string, len(bankAccounts))
+
+		for i, bankAccount := range bankAccounts {
+			accountNames[i] = bankAccount.Name
+		}
+
+		return layout.RenderComponent(
+			c,
+			200,
+			AddAcounts(accountNames),
+		)
 	})
 }
