@@ -50,7 +50,7 @@ declare global {
     ajax(
       method: HttpMethod,
       url: string,
-      context: {}
+      context: HtmxAjaxHelperContext
     ): Promise<unknown>;
   }
   interface HtmxAjaxHelperContext {
