@@ -12,7 +12,7 @@ const isDev = process.env.NODE_ENV === 'development';
 build({
   entryPoints: entryPoints,
   bundle: true,
-  outdir: '../assets/js',
+  outdir: 'assets/js',
   format: 'esm',
   target: ['es6'],
   sourcemap: isDev,
