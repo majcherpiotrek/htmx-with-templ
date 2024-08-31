@@ -2,6 +2,8 @@ package models
 
 import (
 	"fmt"
+
+	"github.com/shopspring/decimal"
 )
 
 type BankAccount struct {
@@ -11,6 +13,9 @@ type BankAccount struct {
 	Name             string
 	Mask             *string
 	AccountType      AccountType
+	CurrentBalance   decimal.NullDecimal
+	AvailableBalance decimal.NullDecimal
+	Currency         string
 }
 
 type BankAccountWriteModel struct {
@@ -19,6 +24,9 @@ type BankAccountWriteModel struct {
 	Name             string
 	Mask             *string
 	AccountType      string // TODO: maybe this should be checked before writing
+	CurrentBalance   decimal.NullDecimal
+	AvailableBalance decimal.NullDecimal
+	Currency         string
 }
 
 type AccountType string

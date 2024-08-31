@@ -1,20 +1,22 @@
 package accounts
 
-templ BankAccountList(accounts []string) {
+import "nerdmoney/pkg/accounts/models"
+
+templ BankAccountList(accounts []models.BankAccount) {
 	<ul id="accounts">
 		for _, account := range accounts {
 			<li>
-				@BankAccount(account)
+				@BankAccount(account.Name, account.CurrentBalance, account.AvailableBalance, account.Currency)
 			</li>
 		}
 	</ul>
 }
 
-templ AddAcounts(accounts []string) {
+templ AddAcounts(accounts []models.BankAccount) {
 	<ul id="accounts" hx-swap-oob="beforeend:#accounts">
 		for _, account := range accounts {
 			<li>
-				@BankAccount(account)
+				@BankAccount(account.Name, account.CurrentBalance, account.AvailableBalance, account.Currency)
 			</li>
 		}
 	</ul>

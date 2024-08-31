@@ -7,6 +7,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/labstack/echo/v4"
+	"github.com/shopspring/decimal"
 )
 
 type BankAccountRepository interface {
@@ -52,6 +53,9 @@ func (r *bankAccountRepositoryImpl) ListAll() ([]models.BankAccount, error) {
 			&bankAccount.Name,
 			&bankAccount.Mask,
 			&accountTypeStr,
+			&bankAccount.CurrentBalance,
+			&bankAccount.AvailableBalance,
+			&bankAccount.Currency,
 		)
 
 		accountType, err := models.ParseAccountType(accountTypeStr)
@@ -75,9 +79,9 @@ func (r *bankAccountRepositoryImpl) Save(writeModel models.BankAccountWriteModel
 	r.log.Debugf("Attempting to save a new BankAccount: %+v", writeModel)
 
 	query := `
-	INSERT INTO bank_account (plaid_account_id, bank_connection_id, name, mask, account_type) 
-	VALUES ($1, $2, $3, $4, $5) 
-	RETURNING id, plaid_account_id, bank_connection_id, name, mask, account_type`
+	INSERT INTO bank_account (plaid_account_id, bank_connection_id, name, mask, account_type, current_balance, available_balance, currency) 
+	VALUES ($1, $2, $3, $4, $5, $6, $7, $8) 
+	RETURNING id, plaid_account_id, bank_connection_id, name, mask, account_type, current_balance, available_balance, currency`
 
 	var id int
 	var plaidAccountID string
@@ -85,6 +89,9 @@ func (r *bankAccountRepositoryImpl) Save(writeModel models.BankAccountWriteModel
 	var name string
 	var mask *string
 	var accountTypeStr string
+	var currentBalance decimal.NullDecimal
+	var availableBalance decimal.NullDecimal
+	var currency string
 
 	err := r.pool.QueryRow(
 		context.Background(),
@@ -94,6 +101,9 @@ func (r *bankAccountRepositoryImpl) Save(writeModel models.BankAccountWriteModel
 		writeModel.Name,
 		writeModel.Mask,
 		writeModel.AccountType,
+		writeModel.CurrentBalance,
+		writeModel.AvailableBalance,
+		writeModel.Currency,
 	).Scan(
 		&id,
 		&plaidAccountID,
@@ -101,6 +111,9 @@ func (r *bankAccountRepositoryImpl) Save(writeModel models.BankAccountWriteModel
 		&name,
 		&mask,
 		&accountTypeStr,
+		&currentBalance,
+		&availableBalance,
+		&currency,
 	)
 
 	if err != nil {

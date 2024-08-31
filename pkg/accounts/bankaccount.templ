@@ -1,7 +1,11 @@
 package accounts
 
-templ BankAccount(name string) {
+import "github.com/shopspring/decimal"
+
+templ BankAccount(name string, currentBalance, availableBalance decimal.NullDecimal, currency string) {
 	<div>
 		<span>{ name }</span>
+		<span>Current: { currentBalance.Decimal.StringFixed(2) } { currency }</span>
+		<span>Available: { availableBalance.Decimal.StringFixed(2) } { currency }</span>
 	</div>
 }
